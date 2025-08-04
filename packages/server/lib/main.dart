@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
 import 'package:server/src/server.dart';
 import 'package:server/src/widgets/client_list_widget.dart';
 
@@ -30,7 +31,10 @@ class ServerPage extends StatefulWidget {
 }
 
 class _ServerPageState extends State<ServerPage> {
-  final _server = Server(notificationPort: 8080, controlPort: 8081);
+  final _server = TcpServer(
+    notificationPort: Constants.notificationPort,
+    controlPort: Constants.controlPort,
+  );
 
   bool _isRunning = false;
   final List<String> _logs = [];
@@ -130,12 +134,17 @@ class _ServerPageState extends State<ServerPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Notification Port: 8080',
+                      'Notification Port: ${Constants.notificationPort}',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Control Port: 8081',
+                      'Control Port: ${Constants.controlPort}',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'API Port: ${Constants.apiPort}',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 24),

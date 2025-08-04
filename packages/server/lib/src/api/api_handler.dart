@@ -1,16 +1,16 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter_push_common/flutter_push_common.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 
 import '../server.dart' as app_server;
-import '../messages.g.dart';
 
-class ApiHandler {
-  final app_server.Server _server;
+class ApiHandler<T, R> {
+  final app_server.IServer<T, R> _server;
   final Router _router = Router();
   HttpServer? _httpServer;
 
@@ -18,8 +18,11 @@ class ApiHandler {
     _router.post('/send-message', _handleSendMessage);
   }
 
-  Future<void> start({String host = '0.0.0.0', int port = 8082}) async {
-    final handler = Pipeline()
+  Future<void> start({
+    String host = Constants.mHost,
+    int port = Constants.apiPort,
+  }) async {
+    final handler = const Pipeline()
         .addMiddleware(logRequests())
         .addMiddleware(corsHeaders())
         .addHandler(_router);
@@ -48,23 +51,22 @@ class ApiHandler {
         );
       }
 
-      final deviceId = data['deviceId'] as String;
       final message = data['message'] as String;
 
       // Create message object
-      final fromUser =
-          UserPigeon()
-            ..deviceName = 'server'
-            ..deviceId = 'server'
-            ..status = UserStatus.online;
+      const fromUser = User(
+        deviceName: 'server',
+        deviceId: 'server',
+        status: UserStatus.online,
+      );
 
-      final toUser = UserPigeon()..deviceId = deviceId;
+      final toUser = User.fromJson(data);
 
-      final textMessage =
-          TextMessagePigeon()
-            ..from = fromUser
-            ..to = toUser
-            ..message = message;
+      final textMessage = TextMessage(
+        from: fromUser,
+        to: toUser,
+        message: message,
+      );
 
       // Send message
       final success = _server.sendMessage(textMessage);

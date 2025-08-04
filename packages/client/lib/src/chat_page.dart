@@ -1,7 +1,8 @@
+import 'dart:developer';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
 import 'chat_client.dart';
-import 'models/message.dart';
-import 'models/user.dart';
 
 class ChatPage extends StatefulWidget {
   const ChatPage({super.key});
@@ -13,7 +14,7 @@ class ChatPage extends StatefulWidget {
 class _ChatPageState extends State<ChatPage> {
   late final ChatClient _client;
   final _messageController = TextEditingController();
-  final _messages = <Message>[];
+  final _messages = <TextMessage>[];
   final _users = <User>[];
   User? _selectedUser;
   bool _isConnected = false;
@@ -26,9 +27,9 @@ class _ChatPageState extends State<ChatPage> {
 
   void _initializeClient() {
     _client = ChatClient(
-      host: '127.0.0.1',
-      notificationPort: 8080,
-      controlPort: 8081,
+      host: Constants.host,
+      notificationPort: Constants.notificationPort,
+      controlPort: Constants.controlPort,
       deviceName: 'Flutter Client ${DateTime.now().millisecondsSinceEpoch}',
     );
 
@@ -41,7 +42,7 @@ class _ChatPageState extends State<ChatPage> {
 
     // Listen for messages
     _client.messageStream.listen((m) {
-      Message message = Message.fromJson(m);
+      TextMessage message = TextMessage.fromJson(m);
       setState(() {
         _messages.add(message);
       });
@@ -101,8 +102,14 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   Future<void> _sendMessage() async {
-    if (_selectedUser == null) return;
-    if (_messageController.text.isEmpty) return;
+    if (_selectedUser == null) {
+      log('No selected user');
+      return;
+    }
+    if (_messageController.text.isEmpty) {
+      log('Message is empty');
+      return;
+    }
 
     try {
       await _client.sendMessage(
@@ -111,14 +118,13 @@ class _ChatPageState extends State<ChatPage> {
       );
       setState(() {
         _messages.add(
-          Message(
+          TextMessage(
             from: User(
               deviceName: _client.deviceName,
               deviceId: _client.deviceId,
             ),
             to: _selectedUser!,
-            text: _messageController.text,
-            timestamp: DateTime.now(),
+            message: _messageController.text,
           ),
         );
       });
@@ -176,7 +182,7 @@ class _ChatPageState extends State<ChatPage> {
                         final user = _users[index];
                         return ListTile(
                           leading: const Icon(Icons.person),
-                          title: Text(user.deviceName),
+                          title: Text(user.deviceName ?? 'Unknown'),
                           selected: _selectedUser?.deviceId == user.deviceId,
                           onTap: () {
                             setState(() {
@@ -261,7 +267,7 @@ class _ChatPageState extends State<ChatPage> {
                                       : CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  message.text,
+                                  message.message,
                                   style: TextStyle(
                                     color: isMe ? Colors.white : null,
                                   ),

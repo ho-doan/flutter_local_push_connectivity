@@ -4,8 +4,7 @@ import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:client/src/models/message.dart';
-import 'package:client/src/models/user.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
 
 enum ConnectionState { disconnected, connecting, connected }
 
@@ -17,13 +16,13 @@ class Client extends ChangeNotifier {
 
   Socket? _notificationSocket;
   Socket? _controlSocket;
-  final _messageController = StreamController<Message>.broadcast();
+  final _messageController = StreamController<TextMessage>.broadcast();
   final _directoryController = StreamController<List<User>>.broadcast();
 
   ConnectionState _notificationState = ConnectionState.disconnected;
   ConnectionState _controlState = ConnectionState.disconnected;
 
-  Stream<Message> get messageStream => _messageController.stream;
+  Stream<TextMessage> get messageStream => _messageController.stream;
   Stream<List<User>> get directoryStream => _directoryController.stream;
   ConnectionState get notificationState => _notificationState;
   ConnectionState get controlState => _controlState;
@@ -79,7 +78,9 @@ class Client extends ChangeNotifier {
               final to = User.fromJson(message['to'] as Map<String, dynamic>);
               final text = message['message'] as String;
 
-              _messageController.add(Message(from: from, to: to, text: text));
+              _messageController.add(
+                TextMessage(from: from, to: to, message: text),
+              );
             }
           }
         }

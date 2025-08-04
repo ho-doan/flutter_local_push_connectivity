@@ -1,9 +1,11 @@
+import 'dart:developer' show log;
+
 import 'package:flutter/material.dart';
-import 'package:server/src/messages.g.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
 import 'package:server/src/server.dart';
 
 class ClientListWidget extends StatefulWidget {
-  final Server server;
+  final IServer server;
 
   const ClientListWidget({super.key, required this.server});
 
@@ -12,7 +14,7 @@ class ClientListWidget extends StatefulWidget {
 }
 
 class _ClientListWidgetState extends State<ClientListWidget> {
-  UserPigeon? _selectedClient;
+  User? _selectedClient;
   final _messageController = TextEditingController();
 
   @override
@@ -22,12 +24,18 @@ class _ClientListWidgetState extends State<ClientListWidget> {
   }
 
   void _sendMessage() {
-    if (_selectedClient == null) return;
-    if (_messageController.text.isEmpty) return;
+    if (_selectedClient == null) {
+      log('No selected client');
+      return;
+    }
+    if (_messageController.text.isEmpty) {
+      log('Message is empty');
+      return;
+    }
 
-    final message = TextMessagePigeon(
-      from: UserPigeon(deviceName: 'Server', deviceId: 'server'),
-      to: _selectedClient,
+    final message = TextMessage(
+      from: const User(deviceName: 'Server', deviceId: 'server'),
+      to: _selectedClient!,
       message: _messageController.text,
     );
 
@@ -62,8 +70,8 @@ class _ClientListWidgetState extends State<ClientListWidget> {
                             ? Theme.of(context).primaryColor
                             : null,
                   ),
-                  title: Text(client.deviceName ?? 'Unknown Device'),
-                  subtitle: Text(client.deviceId ?? 'No ID'),
+                  title: Text(client.deviceName ?? 'Unknown'),
+                  subtitle: Text(client.deviceId),
                   selected: _selectedClient?.deviceId == client.deviceId,
                   onTap: () {
                     setState(() {

@@ -46,6 +46,7 @@ class MessagingViewModel extends ChangeNotifier {
 
   void sendMessage() {
     if (_reply.isEmpty) {
+      _logger.log('Message is empty');
       return;
     }
 

@@ -4,7 +4,7 @@ import 'dart:developer';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'models/user.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
 
 class HeartbeatPigeon {
   final int count;
@@ -88,6 +88,7 @@ class ChatClient {
   void _sendHeartbeat() {
     if (_controlSocket == null) {
       _heartbeatTimer?.cancel();
+      log('Heartbeat timer cancelled');
       return;
     }
 
@@ -188,23 +189,6 @@ class ChatClient {
       },
       cancelOnError: false,
     );
-
-    // Add periodic ping to detect server disconnection
-    Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_controlSocket == null) {
-        timer.cancel();
-        return;
-      }
-
-      try {
-        // Try to write 1 byte to check connection
-        _controlSocket?.add([0]);
-      } catch (e) {
-        log('Control socket write error: $e');
-        _handleSocketError(isNotification: false);
-        timer.cancel();
-      }
-    });
   }
 
   void _handleSocketError({required bool isNotification}) {
@@ -265,6 +249,7 @@ class ChatClient {
   }
 
   Future<void> _sendMessage(Socket socket, dynamic message) async {
+    log('Sending message: $message ${message.runtimeType}');
     final data = jsonEncode(message);
     final messageBytes = utf8.encode(data);
     final length = messageBytes.length;
@@ -296,6 +281,7 @@ class ChatClient {
       if (!wasResponsive) {
         _controlSocketStateController.add(true);
       }
+      log('Heartbeat response received');
       return;
     }
 

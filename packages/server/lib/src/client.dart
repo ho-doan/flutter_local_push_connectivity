@@ -2,19 +2,19 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
+import 'package:flutter_push_common/models/base_model.dart';
 import 'package:server/src/errors.dart';
-import 'package:server/src/messages.g.dart';
 import 'package:server/src/network_session/i_network_session.dart';
-import 'package:server/src/network_session/request_response_session.dart';
 
 import 'heartbeat_coordinator.dart';
 
 enum ClientState { disconnected, connected }
 
-class Connection {
+class Connection<R> {
   final String uuid;
   final ChannelType type;
-  final INetworkSession networkSession;
+  final INetworkSession<R> networkSession;
   final HeartbeatCoordinator? heartbeatCoordinator;
   final List<StreamSubscription> subscriptions;
 
@@ -27,15 +27,12 @@ class Connection {
   });
 }
 
-class Client extends ChangeNotifier {
-  late UserPigeon user;
+class Client<T, R> extends ChangeNotifier {
+  late User user;
   ClientState notificationChannelState = ClientState.disconnected;
   ClientState controlChannelState = ClientState.disconnected;
 
   bool notificationIsResponsive = false;
-
-  final _messageController = StreamController<dynamic>.broadcast();
-  Stream<dynamic> get messagesStream => _messageController.stream;
 
   final Map<ChannelType, Connection> _networkSessions = {};
   final Duration heartbeatInterval = const Duration(seconds: 10);
@@ -52,15 +49,11 @@ class Client extends ChangeNotifier {
 
   Client();
 
-  void setSession(INetworkSession networkSession, ChannelType type) {
+  void setSession(INetworkSession<R> networkSession, ChannelType type) {
     final connectionId = DateTime.now().millisecondsSinceEpoch.toString();
     final subscriptions = <StreamSubscription>[];
 
     HeartbeatCoordinator? heartbeatCoordinator;
-
-    if (networkSession is! RequestResponseSession) {
-      throw SessionError.invalidSession();
-    }
 
     heartbeatCoordinator = HeartbeatCoordinator(interval: heartbeatInterval);
     heartbeatCoordinator.session = networkSession;
@@ -115,20 +108,19 @@ class Client extends ChangeNotifier {
       }),
     );
 
-    if (networkSession is RequestResponseSession) {
-      subscriptions.add(
-        networkSession.messageStream.listen((message) {
-          if (message is! HeartbeatPigeon) {
-            if (message is UserPigeon) {
-              user = message;
-              notifyListeners();
-            } else {
-              _messageController.add(message);
-            }
-          }
-        }),
-      );
-    }
+    // subscriptions.add(
+    //   networkSession.messageStream.listen((message) {
+    //     log('Received message client: $message');
+    //     if (message is! Heartbeat) {
+    //       if (message is User) {
+    //         user = message;
+    //         notifyListeners();
+    //       } else {
+    //         send(message);
+    //       }
+    //     }
+    //   }),
+    // );
 
     final connection = Connection(
       uuid: connectionId,
@@ -156,21 +148,22 @@ class Client extends ChangeNotifier {
     });
   }
 
-  void request<T>(T message, Connection connection) {
-    final session = connection.networkSession as RequestResponseSession?;
+  void request(BaseModel message, Connection connection) {
+    final session = connection.networkSession as INetworkSession<R>?;
     if (session == null) {
       throw SessionError.missingSession();
     }
     session.request(message);
   }
 
-  void send(dynamic data) {
-    if (data is DirectoryPigeon || data is CallActionPigeon) {
+  void send(BaseModel data) {
+    log('Sending data: $data with type ${data.runtimeType}');
+    if (data is Directory || data is Call) {
       final connection = _networkSessions[ChannelType.control];
       if (connection != null) {
         request(data, connection);
       }
-    } else if (data is InvitePigeon || data is TextMessagePigeon) {
+    } else if (data is Invite || data is TextMessage) {
       log('Sending data: $data with type ${data.runtimeType}');
       final connection = _networkSessions[ChannelType.notification];
       if (connection != null) {
@@ -187,7 +180,6 @@ class Client extends ChangeNotifier {
       }
     }
     _networkSessions.clear();
-    _messageController.close();
     notificationIsResponsiveController.close();
     notificationChannelConnectedController.close();
     controlChannelConnectedController.close();

@@ -2,16 +2,17 @@ import 'dart:async';
 import 'dart:developer';
 import 'dart:io';
 
-import 'package:server/src/messages.g.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_push_common/flutter_push_common.dart';
+import 'package:flutter_push_common/models/base_model.dart';
 import 'package:server/src/network_session/i_network_session.dart';
-import 'package:server/src/network_session/request_response_session.dart';
 
-class PendingSession {
-  final RequestResponseSession networkSession;
+class IPendingSession<T, R> {
+  final INetworkSession<R> networkSession;
   final List<StreamSubscription> subscriptions;
   final String? deviceId;
 
-  PendingSession({
+  IPendingSession({
     required this.networkSession,
     this.subscriptions = const [],
     this.deviceId,
@@ -24,55 +25,68 @@ class PendingSession {
   }
 }
 
-class Channel {
+typedef HandleRegistration<T, R> =
+    void Function(User user, IPendingSession<T, R> session, ChannelType type);
+typedef HandleDisconnect = void Function(String deviceId, ChannelType type);
+
+typedef HandleMessage =
+    void Function(BaseModel message, String deviceId, ChannelType type);
+
+abstract class IChannel<T, R> {
   final int port;
   final ChannelType type;
-  final void Function(
-    UserPigeon user,
-    RequestResponseSession session,
-    ChannelType type,
-  )?
-  onRegister;
-  final void Function(String deviceId, ChannelType type)? onDisconnect;
-  final void Function(dynamic message, String deviceId, ChannelType type)?
-  onMessage;
+  final HandleRegistration<T, R>? onRegister;
+  final HandleDisconnect? onDisconnect;
+  final ValueChanged<String>? onLog;
+  final HandleMessage? onMessage;
+  T? server;
 
-  ServerSocket? _server;
-  final Set<PendingSession> _pendingSessions = {};
+  final Map<String, IPendingSession<T, R>> _pendingSessions = {};
 
-  Channel({
+  IChannel({
     required this.port,
     required this.type,
     this.onRegister,
     this.onDisconnect,
+    this.onLog,
     this.onMessage,
   });
 
-  Future<void> start() async {
+  Future<T?> start();
+  Future<void> stop();
+  Future<void> setupConnection(R connection);
+}
+
+class TCPChannel extends IChannel<ServerSocket, Socket> {
+  TCPChannel({
+    required super.port,
+    required super.type,
+    super.onRegister,
+    super.onDisconnect,
+    super.onMessage,
+  });
+
+  @override
+  Future<ServerSocket?> start() async {
     try {
-      _server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
-      log('Listening on port $port');
+      server = await ServerSocket.bind(InternetAddress.anyIPv4, port);
+      onLog?.call('Listening on port $port');
 
-      _server?.listen((socket) {
-        log('Received new connection');
-        _setupConnection(socket);
+      server!.listen((socket) {
+        onLog?.call('Received new connection');
+        setupConnection(socket);
       });
+      return server;
     } catch (e) {
-      log('Error creating server: $e');
+      onLog?.call('Error creating server: $e');
+      return null;
     }
   }
 
-  void stop() {
-    for (final session in _pendingSessions) {
-      session.dispose();
-    }
-    _pendingSessions.clear();
-    _server?.close();
-    _server = null;
-  }
-
-  void _setupConnection(Socket socket) {
-    final networkSession = RequestResponseSession();
+  @override
+  Future<void> setupConnection(Socket connection) async {
+    onLog?.call('Setting up connection');
+    final networkSession = TcpNetworkSession<Socket>();
 
     if (type == ChannelType.notification) {
       // For notification channel, we don't want to disconnect on failure
@@ -83,42 +97,50 @@ class Channel {
     final subscriptions = <StreamSubscription>[];
     String? deviceId;
 
-    void handleRegistration(UserPigeon user) {
+    void handleRegistration(User user) {
       deviceId = user.deviceId;
-      log('Received registration for user ${user.deviceName}');
-      onRegister?.call(user, networkSession, type);
+      onLog?.call('Received registration for user ${user.deviceName}');
 
-      final pendingSession = _pendingSessions.lookup(
-        PendingSession(
-          networkSession: networkSession,
-          subscriptions: subscriptions,
-          deviceId: deviceId,
-        ),
+      var pendingSession = _pendingSessions.values.firstWhere(
+        (e) => e.networkSession.hashCode == networkSession.hashCode,
       );
-      if (pendingSession != null) {
-        pendingSession.dispose();
-        _pendingSessions.remove(pendingSession);
-      }
+      // if (pendingSession == null) {
+      //   pendingSession = _pendingSessions.values.firstWhere(
+      //     (e) => e.networkSession.hashCode == networkSession.hashCode,
+      //   );
+      //   _pendingSessions.remove(pendingSession);
+      //   _pendingSessions['$deviceId-${type.name}'] = pendingSession;
+      // }
+
+      // final pendingSession = _pendingSessions.lookup(
+      //   IPendingSession<Socket>(
+      //     networkSession: networkSession as INetworkSession<Socket>,
+      //     subscriptions: subscriptions,
+      //     deviceId: deviceId,
+      //   ),
+      // );
+      onRegister?.call(user, pendingSession, type);
+      pendingSession.dispose();
+      _pendingSessions.remove(pendingSession);
     }
 
     // Listen for user registration and messages
     subscriptions.add(
       networkSession.messageStream.listen((message) {
-        log('Received message ${type.name}: $message');
+        log('Received message channel ${type.name}: $message');
         if (message is Map &&
             message.containsKey('deviceName') &&
             message.containsKey('deviceId')) {
-          final user =
-              UserPigeon()
-                ..deviceName = message['deviceName'] as String?
-                ..deviceId = message['deviceId'] as String?;
+          final user = User.fromJson(message as Map<String, dynamic>);
+          deviceId = user.deviceId;
           handleRegistration(user);
-        } else if (message is UserPigeon) {
+        } else if (message is User) {
+          deviceId = message.deviceId;
           handleRegistration(message);
         } else if (deviceId != null) {
           // Forward other messages to the handler
           onMessage?.call(message, deviceId!, type);
-        } else if (message is TextMessagePigeon) {
+        } else if (message is TextMessage) {
           onMessage?.call(message, deviceId!, type);
         }
       }),
@@ -127,19 +149,30 @@ class Channel {
     // Listen for disconnection
     subscriptions.add(
       networkSession.stateStream.listen((state) {
+        log('Network session state changed: $state');
         if (state == NetworkSessionState.disconnected && deviceId != null) {
           onDisconnect?.call(deviceId!, type);
         }
       }),
     );
 
-    final pendingSession = PendingSession(
+    final pendingSession = IPendingSession<ServerSocket, Socket>(
       networkSession: networkSession,
       subscriptions: subscriptions,
       deviceId: deviceId,
     );
 
-    _pendingSessions.add(pendingSession);
-    networkSession.connect(socket);
+    _pendingSessions['$deviceId-${type.name}'] = pendingSession;
+    networkSession.connect(connection);
+  }
+
+  @override
+  Future<void> stop() async {
+    for (final session in _pendingSessions.values) {
+      session.dispose();
+    }
+    _pendingSessions.clear();
+    await server?.close();
+    server = null;
   }
 }

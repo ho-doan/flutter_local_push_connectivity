@@ -1,6 +1,7 @@
 name: server
 description: A TCP server for handling push notifications and control messages.
 version: 1.0.0
+publish_to: none
 
 environment:
   sdk: ^3.7.2
@@ -13,6 +14,8 @@ dependencies:
   shelf_router: ^1.1.4
   shelf_cors_headers: ^0.1.5
   pigeon: ^26.0.0
+  flutter_push_common:
+    path: ../flutter_push_common
 
 dev_dependencies:
   flutter_test:

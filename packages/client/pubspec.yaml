@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   uuid: ^4.5.1
   equatable: ^2.0.7
+  flutter_push_common:
+    path: ../flutter_push_common
 
 dev_dependencies:
   flutter_test:

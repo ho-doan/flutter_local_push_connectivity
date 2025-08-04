@@ -1,21 +1,18 @@
 import 'dart:async';
 import 'dart:developer';
 
+import 'package:flutter_push_common/flutter_push_common.dart';
 import 'package:server/src/errors.dart';
-import 'package:server/src/network_session/request_response_session.dart';
 
-class HeartbeatPigeon {
-  final int count;
-  const HeartbeatPigeon({this.count = 0});
-}
+import 'network_session/i_network_session.dart';
 
 enum HeartbeatStartMode { now, afterInterval }
 
-class HeartbeatCoordinator {
+class HeartbeatCoordinator<T> {
   final Duration interval;
   Timer? _timer;
   bool _isSessionResponsive = false;
-  RequestResponseSession? _session;
+  INetworkSession<T>? _session;
   final _isSessionResponsiveController = StreamController<bool>.broadcast();
   int _heartbeatCount = 1;
   bool _isRunning = false;
@@ -27,7 +24,7 @@ class HeartbeatCoordinator {
   bool get isSessionResponsive => _isSessionResponsive;
   bool get isRunning => _isRunning;
 
-  set session(RequestResponseSession session) {
+  set session(INetworkSession<T> session) {
     _session = session;
   }
 
@@ -71,7 +68,7 @@ class HeartbeatCoordinator {
     log('Sending heartbeat #$_heartbeatCount');
 
     session
-        .request(HeartbeatPigeon(count: _heartbeatCount))
+        .request(Heartbeat(count: _heartbeatCount))
         .then((_) {
           _heartbeatCount++;
           _setSessionResponsive(true);
