@@ -1,0 +1,15 @@
+{
+  "originHash" : "fd4295bec05d0655af22270fbc773afda48feddf1007d72a772ed153328cecfd",
+  "pins" : [
+    {
+      "identity" : "hdpushkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ho-doan/HDPushKit.git",
+      "state" : {
+        "revision" : "50e3b64c053aef727a031cb4e012da65a8d234a9",
+        "version" : "1.0.10"
+      }
+    }
+  ],
+  "version" : 3
+}

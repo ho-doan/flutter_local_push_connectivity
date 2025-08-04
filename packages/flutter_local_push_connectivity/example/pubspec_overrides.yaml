@@ -1,0 +1,4 @@
+# melos_managed_dependency_overrides: flutter_local_push_connectivity
+dependency_overrides:
+  flutter_local_push_connectivity:
+    path: ..

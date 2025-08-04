@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/packages/client/melos_client.iml" filepath="$PROJECT_DIR$/packages/client/melos_client.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/flutter_local_push_connectivity/melos_flutter_local_push_connectivity.iml" filepath="$PROJECT_DIR$/packages/flutter_local_push_connectivity/melos_flutter_local_push_connectivity.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/flutter_local_push_connectivity/example/melos_flutter_local_push_connectivity_example.iml" filepath="$PROJECT_DIR$/packages/flutter_local_push_connectivity/example/melos_flutter_local_push_connectivity_example.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/flutter_push_common/melos_flutter_push_common.iml" filepath="$PROJECT_DIR$/packages/flutter_push_common/melos_flutter_push_common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/packages/server/melos_server.iml" filepath="$PROJECT_DIR$/packages/server/melos_server.iml" />
+      <module fileurl="file://$PROJECT_DIR$/melos_melos_app.iml" filepath="$PROJECT_DIR$/melos_melos_app.iml" />
+    </modules>
+  </component>
+</project>

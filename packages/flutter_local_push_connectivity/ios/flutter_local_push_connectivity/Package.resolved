@@ -1,0 +1,14 @@
+{
+  "pins" : [
+    {
+      "identity" : "hdpushkit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ho-doan/HDPushKit.git",
+      "state" : {
+        "revision" : "fe0e813ab2840ab38bf80ae7287b54725c65e488",
+        "version" : "1.0.9"
+      }
+    }
+  ],
+  "version" : 2
+}

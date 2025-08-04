@@ -1,0 +1,12 @@
+name: melos_app
+
+packages:
+  - packages/**
+
+scripts:
+  build:
+    exec: dart pub run build_runner build --delete-conflicting-outputs
+    failFast: true
+    packageFilters:
+      dependsOn: build_runner
+    description: build_runner build all modules.
