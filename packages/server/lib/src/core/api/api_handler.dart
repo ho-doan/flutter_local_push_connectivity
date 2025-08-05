@@ -8,7 +8,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 
-import '../core/connection.dart';
+import '../server/i_server.dart';
 
 class ApiHandler {
   final Set<IServer> _servers;

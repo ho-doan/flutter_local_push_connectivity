@@ -3,7 +3,9 @@ import 'dart:developer' show log;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_push_common/flutter_push_common.dart';
-import 'package:server/src/core/connection.dart';
+
+import '../core/client.dart';
+import '../core/server/i_server.dart';
 
 class ClientListWidget extends StatefulWidget {
   final Set<IServer> servers;
@@ -21,7 +23,7 @@ class _ClientListWidgetState extends State<ClientListWidget> {
       _clients =
           widget.servers
               .expand(
-                (e) => e.channelNotification.clients.map(
+                (e) => e.channelNotification.clientLst.map(
                   (c) => (e, c, TextEditingController()),
                 ),
               )
@@ -38,7 +40,7 @@ class _ClientListWidgetState extends State<ClientListWidget> {
         _clients =
             widget.servers
                 .expand(
-                  (e) => e.channelNotification.clients.map(
+                  (e) => e.channelNotification.clientLst.map(
                     (c) => (e, c, TextEditingController()),
                   ),
                 )
@@ -163,7 +165,7 @@ class _ClientListWidgetState extends State<ClientListWidget> {
                   ),
                 ),
               if (widget.servers
-                  .expand((e) => e.channelNotification.clients)
+                  .expand((e) => e.channelNotification.clientLst)
                   .isEmpty)
                 const Padding(
                   padding: EdgeInsets.all(16),
