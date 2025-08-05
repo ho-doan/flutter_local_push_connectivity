@@ -108,19 +108,19 @@ class Client<T, R> extends ChangeNotifier {
       }),
     );
 
-    // subscriptions.add(
-    //   networkSession.messageStream.listen((message) {
-    //     log('Received message client: $message');
-    //     if (message is! Heartbeat) {
-    //       if (message is User) {
-    //         user = message;
-    //         notifyListeners();
-    //       } else {
-    //         send(message);
-    //       }
-    //     }
-    //   }),
-    // );
+    subscriptions.add(
+      networkSession.messageStream.listen((message) {
+        log('Received message client: $message');
+        if (message is! Heartbeat) {
+          if (message is User) {
+            user = message;
+            notifyListeners();
+          } else {
+            send(message);
+          }
+        }
+      }),
+    );
 
     final connection = Connection(
       uuid: connectionId,

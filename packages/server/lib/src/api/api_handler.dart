@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:flutter_push_common/flutter_push_common.dart';
@@ -7,14 +8,14 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
 
-import '../server.dart' as app_server;
+import '../core/connection.dart';
 
-class ApiHandler<T, R> {
-  final app_server.IServer<T, R> _server;
+class ApiHandler {
+  final Set<IServer> _servers;
   final Router _router = Router();
   HttpServer? _httpServer;
 
-  ApiHandler(this._server) {
+  ApiHandler(this._servers) {
     _router.post('/send-message', _handleSendMessage);
   }
 
@@ -28,7 +29,7 @@ class ApiHandler<T, R> {
         .addHandler(_router);
 
     _httpServer = await shelf_io.serve(handler, host, port);
-    print('REST API server listening on port ${_httpServer?.port}');
+    log('REST API server listening on port ${_httpServer?.port}');
   }
 
   Future<void> stop() async {
@@ -41,43 +42,25 @@ class ApiHandler<T, R> {
       final body = await request.readAsString();
       final data = jsonDecode(body) as Map<String, dynamic>;
 
-      // Validate required fields
-      if (!data.containsKey('deviceId') || !data.containsKey('message')) {
+      try {
+        final textMessage = TextMessage.fromJson(data);
+        final lst = await Future.wait(_servers.map((e) => e.send(textMessage)));
+        final success = lst.any((e) => e == true);
+
+        return Response.ok(
+          jsonEncode({
+            'success': success,
+            'message':
+                success ? 'Message sent successfully' : 'Message not sent',
+          }),
+          headers: {HttpHeaders.contentTypeHeader: ContentType.json.toString()},
+        );
+      } catch (e) {
         return Response(
           HttpStatus.badRequest,
-          body: jsonEncode({
-            'error': 'Missing required fields: deviceId and message',
-          }),
+          body: jsonEncode({'error': 'Invalid message format'}),
         );
       }
-
-      final message = data['message'] as String;
-
-      // Create message object
-      const fromUser = User(
-        deviceName: 'server',
-        deviceId: 'server',
-        status: UserStatus.online,
-      );
-
-      final toUser = User.fromJson(data);
-
-      final textMessage = TextMessage(
-        from: fromUser,
-        to: toUser,
-        message: message,
-      );
-
-      // Send message
-      final success = _server.sendMessage(textMessage);
-
-      return Response.ok(
-        jsonEncode({
-          'success': success,
-          'message': success ? 'Message sent successfully' : 'Message not sent',
-        }),
-        headers: {HttpHeaders.contentTypeHeader: ContentType.json.toString()},
-      );
     } catch (e) {
       return Response.internalServerError(
         body: jsonEncode({'error': 'Failed to send message: $e'}),

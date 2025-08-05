@@ -51,6 +51,7 @@ class ChatClient {
   }
 
   Future<void> connect() async {
+    _clientDisconnected = false;
     try {
       // Connect to notification channel
       _notificationSocket = await Socket.connect(host, notificationPort);
@@ -112,11 +113,16 @@ class ChatClient {
     }
   }
 
+  bool _clientDisconnected = false;
+
   void disconnect() {
+    _clientDisconnected = true;
     _heartbeatTimer?.cancel();
     _heartbeatTimer = null;
     _notificationSocket?.destroy();
+    _notificationSocket?.close();
     _controlSocket?.destroy();
+    _controlSocket?.close();
     _notificationSocket = null;
     _controlSocket = null;
     _isConnected = false;
@@ -208,7 +214,7 @@ class ChatClient {
       _connectionController.add(false);
 
       Future.delayed(const Duration(seconds: 5), () {
-        if (!_isConnected) {
+        if (!_isConnected && !_clientDisconnected) {
           connect().catchError((e) {
             log('Reconnection failed: $e');
           });
@@ -232,7 +238,7 @@ class ChatClient {
       _connectionController.add(false);
 
       Future.delayed(const Duration(seconds: 5), () {
-        if (!_isConnected) {
+        if (!_isConnected && !_clientDisconnected) {
           connect().catchError((e) {
             log('Reconnection failed: $e');
           });
@@ -290,21 +296,6 @@ class ChatClient {
       final lst = message['users'] as List<dynamic>;
       _directoryController.add(lst.map((e) => User.fromJson(e)).toList());
     }
-  }
-
-  Future<void> sendMessage(String message, String recipientId) async {
-    if (!_isConnected) {
-      throw Exception('Not connected to server');
-    }
-
-    final messageData = {
-      'from': {'deviceName': deviceName, 'deviceId': deviceId},
-      'to': {'deviceId': recipientId},
-      'message': message,
-    };
-
-    await _sendMessage(_notificationSocket!, messageData);
-    log('Message sent to $recipientId: $message');
   }
 
   void dispose() {

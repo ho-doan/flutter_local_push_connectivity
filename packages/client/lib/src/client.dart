@@ -57,10 +57,12 @@ class Client extends ChangeNotifier {
 
   void disconnect() {
     _notificationSocket?.destroy();
+    _notificationSocket?.close();
     _notificationSocket = null;
     _setNotificationState(ConnectionState.disconnected);
 
     _controlSocket?.destroy();
+    _controlSocket?.close();
     _controlSocket = null;
     _setControlState(ConnectionState.disconnected);
   }

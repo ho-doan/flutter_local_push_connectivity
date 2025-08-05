@@ -1,5 +1,6 @@
 import 'dart:developer';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_push_common/flutter_push_common.dart';
 import 'chat_client.dart';
@@ -112,9 +113,23 @@ class _ChatPageState extends State<ChatPage> {
     }
 
     try {
-      await _client.sendMessage(
-        _messageController.text,
-        _selectedUser!.deviceId,
+      log(
+        'Sending message to ${_selectedUser!.deviceId} ${'http://${Constants.host}:${Constants.apiPort}'}',
+      );
+      final dio = Dio(
+        BaseOptions(baseUrl: 'http://${Constants.host}:${Constants.apiPort}'),
+      );
+      await dio.post(
+        '/send-message',
+        data:
+            TextMessage(
+              from: User(
+                deviceName: _client.deviceName,
+                deviceId: _client.deviceId,
+              ),
+              to: _selectedUser!,
+              message: _messageController.text,
+            ).toJson(),
       );
       setState(() {
         _messages.add(
@@ -130,6 +145,7 @@ class _ChatPageState extends State<ChatPage> {
       });
       _messageController.clear();
     } catch (e) {
+      log('Failed to send message: $e');
       if (mounted) {
         ScaffoldMessenger.of(
           context,

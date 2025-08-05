@@ -38,6 +38,7 @@ dependencies:
   equatable: ^2.0.7
   flutter_push_common:
     path: ../flutter_push_common
+  dio: ^5.8.0+1
 
 dev_dependencies:
   flutter_test:

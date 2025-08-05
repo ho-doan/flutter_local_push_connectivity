@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_push_common/flutter_push_common.dart';
-import 'package:server/src/server.dart';
+import 'package:server/src/api/api_handler.dart';
+import 'package:server/src/core/connection.dart';
 import 'package:server/src/widgets/client_list_widget.dart';
 
 void main() {
@@ -31,38 +32,67 @@ class ServerPage extends StatefulWidget {
 }
 
 class _ServerPageState extends State<ServerPage> {
-  final _server = TcpServer(
-    notificationPort: Constants.notificationPort,
-    controlPort: Constants.controlPort,
-  );
+  Set<IServer> _servers = {
+    TcpServer(
+      portNotification: Constants.notificationPort,
+      portControl: Constants.controlPort,
+    ),
+  };
+
+  late ApiHandler _apiHandler;
 
   bool _isRunning = false;
   final List<String> _logs = [];
+
+  void _listen() {
+    setState(() {});
+  }
+
+  void _init() {
+    setState(() {
+      _servers = {
+        TcpServer(
+          portNotification: Constants.notificationPort,
+          portControl: Constants.controlPort,
+        ),
+      };
+      for (final server in _servers) {
+        server.addListener(_listen);
+      }
+
+      _apiHandler = ApiHandler(_servers);
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     // Listen to server logs
-    _server.logStream.listen((log) {
-      setState(() {
-        _logs.add(log);
-      });
-    });
+    // _server.logStream.listen((log) {
+    //   setState(() {
+    //     _logs.add(log);
+    //   });
+    // });
 
     // Listen to client changes
-    _server.addListener(() {
-      setState(() {});
-    });
+    _init();
   }
 
   Future<void> _toggleServer() async {
     if (_isRunning) {
-      _server.stop();
+      for (final server in _servers) {
+        await server.stop();
+      }
+      _apiHandler.stop();
       setState(() {
         _isRunning = false;
       });
     } else {
-      await _server.start();
+      _init();
+      for (final server in _servers) {
+        await server.start();
+      }
+      _apiHandler.start();
       setState(() {
         _isRunning = true;
       });
@@ -71,7 +101,9 @@ class _ServerPageState extends State<ServerPage> {
 
   @override
   void dispose() {
-    _server.dispose();
+    for (final server in _servers) {
+      server.dispose();
+    }
     super.dispose();
   }
 
@@ -151,7 +183,7 @@ class _ServerPageState extends State<ServerPage> {
                     // Client List
                     Expanded(
                       child: SingleChildScrollView(
-                        child: ClientListWidget(server: _server),
+                        child: ClientListWidget(servers: _servers),
                       ),
                     ),
                   ],
