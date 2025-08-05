@@ -10,3 +10,9 @@ scripts:
     packageFilters:
       dependsOn: build_runner
     description: build_runner build all modules.
+  pigeon:
+    exec: dart run pigeon --input pigeons/messages.dart
+    failFast: true
+    packageFilters:
+      dependsOn: pigeon
+    description: pigeon build all modules.
