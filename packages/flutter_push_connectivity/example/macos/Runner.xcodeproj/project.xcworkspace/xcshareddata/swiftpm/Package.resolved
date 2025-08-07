@@ -1,0 +1,15 @@
+{
+  "originHash" : "359756b86f40098981a8e536b468c9d668993b98396dc31ed89d7a2de3d8d1a2",
+  "pins" : [
+    {
+      "identity" : "hdpushkitmacos",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ho-doan/HDPushKitMacOS.git",
+      "state" : {
+        "revision" : "e5af0fa527e8565f009243baaf0043f152ec15bb",
+        "version" : "1.0.6"
+      }
+    }
+  ],
+  "version" : 3
+}

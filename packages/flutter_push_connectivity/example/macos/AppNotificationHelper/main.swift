@@ -1,11 +1,19 @@
-import Cocoa
-import FlutterMacOS
-import UserNotifications
-import AppKit
-import Network
+//
+//  main.swift
+//  AppNotificationHelper
+//
+//  Created by TPS-User on 6/8/25.
+//
 
-public class FlutterPushConnectivityStaticPlugin {
-    public static let shared = FlutterPushConnectivityStaticPlugin()
+import Foundation
+//import HDPushKitMacOS
+import Network
+import AppKit
+
+public class HDPushKitMOS: NSObject {
+    public static let shared = HDPushKitMOS()
+    
+    public override init() {}
     
     public func setFrame(with frame: NSRect) -> NSRect {
         let args = CommandLine.arguments
@@ -35,12 +43,13 @@ public class FlutterPushConnectivityStaticPlugin {
            let indexPortControl = indexPortControl, indexPortControl + 1 < args.count {
             self.appPath = args[indexApp + 1]
             let host = args[indexHost + 1]
-            let portNoti = Int64(args[indexPortNoti + 1] as! String)
-            let portControl = Int64(args[indexPortControl + 1] as! String)
+            let portNoti = Int64(args[indexPortNoti + 1])
+            let portControl = Int64(args[indexPortControl + 1])
             
             self.host = NWEndpoint.Host(host)
             self.notificationPort = NWEndpoint.Port(rawValue: UInt16(exactly: portNoti!)!)
             self.controlPort = NWEndpoint.Port(rawValue: UInt16(exactly: portControl!)!)
+            print("host: \(host), notificationPort: \(notificationPort), controlPort: \(controlPort)")
             connect()
             return true
         }
@@ -60,26 +69,39 @@ public class FlutterPushConnectivityStaticPlugin {
     private var deviceName = UUID().uuidString
     
     private func connect() {
-        connectionNotification = NWConnection(host: host!, port: controlPort!, using: .tcp)
+        var options : NWProtocolTCP.Options {
+            let option = NWProtocolTCP.Options()
+            option.noDelay = true
+            return option
+        }
+        let parameters = NWParameters(tls: nil, tcp: options)
+        print("state: connectionNotification")
+        connectionNotification = NWConnection(host: host!, port: notificationPort!, using: parameters)
         
+            print("state: connectionNotification \(connectionNotification != nil)")
         connectionNotification?.stateUpdateHandler = {
             state in
+            print("state: connectionNotification \(state)")
             if state == .ready {
                 self.register(self.connectionNotification, isNoti: true)
                 self.receive(on: self.connectionNotification, isNoti: true)
             }
         }
         
-        connectionControl = NWConnection(host: host!, port: controlPort!, using: .tcp)
+        connectionNotification?.start(queue: .global())
+        
+        connectionControl = NWConnection(host: host!, port: controlPort!, using: parameters)
         
         connectionControl?.stateUpdateHandler = {
             state in
+            print("state: connectionControl \(state)")
             if state == .ready {
                 self.register(self.connectionControl, isNoti: false)
                 self.receive(on: self.connectionControl, isNoti: false)
                 self.startHeartbeat()
             }
         }
+        connectionControl?.start(queue: .global())
     }
     private var heartbeatTimer: Timer? = nil
     private var heartbeatCount = 0
@@ -142,7 +164,8 @@ public class FlutterPushConnectivityStaticPlugin {
     }
     
     private func handleMessageNoti(_ message: [String: Any]) {
-        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!)
+        // TODO: hodoan send bundleid
+        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: "com.hodoan.flutterPushConnectivityExample")
         
         if apps.count > 1 {
             UserDefaults.standard.setValue("\(message)", forKey: "notification")
@@ -173,17 +196,20 @@ public class FlutterPushConnectivityStaticPlugin {
                     handleControlMessage(json)
                 }
             }
+            buffer.removeSubrange(0..<4 + Int(length))
         }
     }
     
     private func receive(on connection: NWConnection?, isNoti: Bool) {
         connection?.receive(minimumIncompleteLength: 4, maximumLength: 4096) {
-            data, _, isComplete, error in
+            (data, _, isComplete, error) in
             if let data = data, !data.isEmpty {
                 self.handleData(data, isNoti: isNoti)
             }
             
-            if isComplete || error != nil {
+            if isComplete {
+                print("completed message")
+            } else if error != nil {
                 self.handleSocketClosed(isNotification: isNoti)
             } else {
                 self.receive(on: connection, isNoti: isNoti)
@@ -205,126 +231,23 @@ public class FlutterPushConnectivityStaticPlugin {
     }
 }
 
-public class FlutterPushConnectivityPlugin: NSObject, FlutterPlugin, PushConnectivityHostApi, UNUserNotificationCenterDelegate {
-    public static func register(with registrar: FlutterPluginRegistrar) {
-        let api = FlutterPushConnectivityPlugin()
-        PushConnectivityHostApiSetup.setUp(binaryMessenger: registrar.messenger, api: api, messageChannelSuffix: "flutter_push_connectivity")
-        UNUserNotificationCenter.current().delegate = api
-        FlutterPushConnectivityNotifier().requestNotificationPermission()
-    }
-    
-    var host: String!
-    var portNotification: Int64!
-    var portControl: Int64!
-    
-    // MARK: - PushConnectivityHostApi Implementation
-    
-    public func initialize(host: String, portNotification: Int64, portControl: Int64, completion: @escaping (Result<Void, Error>) -> Void) {
-        self.host = host
-        self.portControl = portControl
-        self.portNotification = portControl
-        completion(.success(()))
-    }
-    
-    public func connect(completion: @escaping (Result<Void, Error>) -> Void) {
-        lauchProcess()
-        completion(.success(()))
-    }
-    
-    public func disconnect(completion: @escaping (Result<Void, Error>) -> Void) {
-        killProcess()
-        completion(.success(()))
-    }
-    
-    private func killProcess() {
-        let currentPID = getpid()
-        let apps = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier!)
-        
-        for app in apps {
-            let pid = app.processIdentifier
-            if pid != currentPID {
-                if !app.terminate() {
-                    app.forceTerminate()
-                }
-            }
-        }
-    }
-    
-    private func lauchProcess() {
-        killProcess()
-        let args = CommandLine.arguments
-        if args.contains("--from-helper") {
-            return
-        }
-        let process = Process()
-        let path = "\(Bundle.main.bundlePath)/Contents/MacOS/AppNotificationHelper"
-        let pathApp = "\(Bundle.main.bundlePath)/Contents/MacOS/\(Bundle.main.infoDictionary?["CFBundleExecutable"] as? String ?? "")"
-        print("path: \(path) \(pathApp)")
-        process.executableURL = URL(fileURLWithPath: path)
-        process.arguments = ["--from-app", pathApp, "--host", host, "--portNoti","\(portNotification)", "--portControl","\(portControl)"]
-        process.standardOutput = nil
-        process.standardError = nil
-        process.standardInput = nil
-        
-        process.terminationHandler = nil
-        process.qualityOfService = .background
-        
-        do {
-            try process.run()
-            print("✅ Detached process started with PID \(process.processIdentifier)")
-        } catch {
-            print("❌ Failed to start detached process: \(error)")
-        }
-    }
-    
-    public func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
-        let userInfo = response.notification.request.content.userInfo
-        if let action = userInfo["action"] as? String {
-            let bundleId = Bundle.main.bundleIdentifier!
-            print("🚀 App opened from notification. Action: \(action) \(bundleId)")
-            let runningApps = NSRunningApplication.runningApplications(withBundleIdentifier: bundleId)
-            if let app = runningApps.first(where: { $0.activationPolicy != .prohibited}) {
-                app.activate(options: [.activateAllWindows, .activateIgnoringOtherApps])
-            } else {
-                NSWorkspace.shared.launchApplication(withBundleIdentifier: bundleId,options: [], additionalEventParamDescriptor: nil, launchIdentifier: nil)
-            }
-        }
-    }
-}
 
-class FlutterPushConnectivityNotifier {
-    var timer: Timer?
-    
-    func requestNotificationPermission() {
-        let center = UNUserNotificationCenter.current()
-        center.requestAuthorization(options: [.alert, .sound]) {
-            granted, error in
-            if granted {
-                print("✅ Notification permission granted.")
-            } else {
-                print("❌ Notification permission denied: \(String(describing: error))")
-            }
-        }
-    }
-    
-    func startTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { _ in
-            self.showNotification(title: "🔔 Background Process", body: "Timer triggered at \(Date())")
-        }
-    }
-    
-    func showNotification(title: String, body: String) {
-        let content = UNMutableNotificationContent()
-        content.title = title
-        content.body = body
-        content.userInfo = ["action": "open"]
+func start() {
+    do {
+        let args = CommandLine.arguments
+        print("aaa \(args)")
         
-        let request = UNNotificationRequest(
-            identifier: UUID().uuidString,
-            content: content,
-            trigger: nil
-        )
-        
-        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+     try? HDPushKitMOS.shared.start()
+    } catch {
+        print(error)
     }
 }
+//let mos = HDPushKitMOS.shared.start()
+//    let success: Bool = HDPushKitMOS().start()
+    //if !success {
+    //    exit(0)
+    //}
+
+start()
+
+RunLoop.main.run()

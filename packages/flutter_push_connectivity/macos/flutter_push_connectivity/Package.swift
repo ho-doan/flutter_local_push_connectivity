@@ -6,16 +6,20 @@ import PackageDescription
 let package = Package(
     name: "flutter_push_connectivity",
     platforms: [
-        .macOS("10.14")
+        .macOS("11.0")
     ],
     products: [
         .library(name: "flutter-push-connectivity", targets: ["flutter_push_connectivity"])
     ],
-    dependencies: [],
+    dependencies: [
+        .package(url: "https://github.com/ho-doan/HDPushKitMacOS.git", from: "1.0.8")
+    ],
     targets: [
         .target(
             name: "flutter_push_connectivity",
-            dependencies: [],
+            dependencies: [
+                .product(name: "HDPushKitMacOS", package: "HDPushKitMacOS")
+            ],
             resources: [
                 // If your plugin requires a privacy manifest, for example if it collects user
                 // data, update the PrivacyInfo.xcprivacy file to describe your plugin's
