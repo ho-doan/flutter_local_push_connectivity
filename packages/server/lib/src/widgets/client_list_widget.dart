@@ -126,7 +126,7 @@ class _ClientListWidgetState extends State<ClientListWidget> {
                           Clipboard.setData(
                             ClipboardData(text: client.deviceId),
                           ).then((_) {
-                            if (mounted) {
+                            if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
                                   content: Text(

@@ -26,6 +26,7 @@ samples, guidance on mobile development, and a full API reference.
 - retry connection
 - single process
 - kill old process
+- listen UserDefaults.standard when app running
 
 ### iOS
 
